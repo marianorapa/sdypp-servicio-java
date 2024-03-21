@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.controller.dto.ProcessRequest;
 import com.example.demo.controller.dto.ProcessResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,9 +15,14 @@ public class ProcessController {
     public ResponseEntity<ProcessResponse> process() {
         var restTemplate = new RestTemplate();
         System.out.println("Request received");
+        var request = new ProcessRequest(43);
+        var response = restTemplate.postForEntity("http://127.0.0.1:6000/process", request, ProcessResponse.class);
 
-        var response = restTemplate.getForEntity("http://127.0.0.1:6000/process", ProcessResponse.class);
-        return new ResponseEntity<>(response.getBody(), response.getStatusCode());
+        ProcessRequest request2 = new ProcessRequest(42);
+        var response2 = restTemplate.postForEntity("http://127.0.0.1:6001/process", request2, ProcessResponse.class);
+
+        var finalResponse = new ProcessResponse(response.getBody().getData() + response2.getBody().getData());
+        return new ResponseEntity<>(finalResponse, HttpStatus.OK);
     }
 
 }
