@@ -6,23 +6,43 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.client.RestTemplate;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 @RestController
 public class ProcessController {
 
+    private WebClient webClient(String url) {
+        return WebClient.builder().baseUrl(url).build();
+    }
+
     @GetMapping("/process")
     public ResponseEntity<ProcessResponse> process() {
-        var restTemplate = new RestTemplate();
+
         System.out.println("Request received");
-        var request = new ProcessRequest(42);
-        var response = restTemplate.postForEntity("http://127.0.0.1:6000/process", request, ProcessResponse.class);
 
-        ProcessRequest request2 = new ProcessRequest(41);
-        var response2 = restTemplate.postForEntity("http://127.0.0.1:6001/process", request2, ProcessResponse.class);
+        Mono<ProcessResponse> responseMono1 = webClient("http://127.0.0.1:6000")
+                .post()
+                .uri("/process")
+                .body(BodyInserters.fromValue(new ProcessRequest(42)))
+                .retrieve()
+                .bodyToMono(ProcessResponse.class);
 
-        var finalResponse = new ProcessResponse(response.getBody().getData() + response2.getBody().getData());
-        return new ResponseEntity<>(finalResponse, HttpStatus.OK);
+        Mono<ProcessResponse> responseMono2 = webClient("http://127.0.0.1:6001")
+                .post()
+                .uri("/process")
+                .body(BodyInserters.fromValue(new ProcessRequest(41)))
+                .retrieve()
+                .bodyToMono(ProcessResponse.class);
+
+        Mono<Integer> resultMono = Mono.zip(responseMono1, responseMono2)
+                .map(tuple -> tuple.getT1().getData() + tuple.getT2().getData());
+
+        return resultMono
+                .map(sum -> new ResponseEntity<>(new ProcessResponse(sum), HttpStatus.OK))
+                .block();
+
     }
 
 }
